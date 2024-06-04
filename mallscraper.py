@@ -5,6 +5,19 @@ from bs4 import BeautifulSoup
 state_names = ["Alaska", "Alabama", "Arkansas", "American Samoa", "Arizona", "California", "Colorado", "Connecticut", "District ", "of Columbia", "Delaware", "Florida", "Georgia", "Guam", "Hawaii", "Iowa", "Idaho", "Illinois", "Indiana", "Kansas", "Kentucky", "Louisiana", "Massachusetts", "Maryland", "Maine", "Michigan", "Minnesota", "Missouri", "Mississippi", "Montana", "North Carolina", "North Dakota", "Nebraska", "New Hampshire", "New Jersey", "New Mexico", "Nevada", "New York", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Puerto Rico", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Virginia", "Virgin Islands", "Vermont", "Washington", "Wisconsin", "West Virginia", "Wyoming"]
 state_lower = [state.lower() for state in state_names]
 
+def mall_outlet(inp):
+    # user_input = input("Are you searching for a mall or an outlet? (m [mall]/o [outlet]): ")
+
+    while inp != 'm' and inp != 'o':
+        inp = input(f'Please type either "m" for mall or "o" for outlets. Try again: ')
+    
+    if inp == 'm':
+        return "malls"
+    else:
+        return "outlets"
+
+def singular(str):
+    return str[:-1]
 
 def fetch_and_parse_url(url):
     """
@@ -37,43 +50,27 @@ def find_mall_index(mall_names, target_mall):
     if target_mall.lower() in mall_names_lower:
         return mall_names_lower.index(target_mall)
     else:
-        print("Check to make sure the name is entered right")
+        # print("Check to make sure the name is entered right")
         return None
 
 def get_mall_info(soup):
     """
     """
+    mall_urls = []
+    mall_names = []
+
     mall_info_html = soup.find_all('div', class_ = 'info')
     mall_info = [mall.text.strip() for mall in mall_info_html]
-    return mall_info
+    
+    for mall in mall_info_html:
+        mall_tag = mall.find('a').get('href')
+        mall_urls.append(mall_tag)
 
-def extract_mall_names(mall_info):
-    """
-    """
-    mall_names = []
     for mall in mall_info:
         extracted_name = mall.split("\n")[0]
         mall_names.append(extracted_name)
-    return mall_names
 
-def create_mall_sites(mall_names, site_starter):
-    mall_urls = []
-
-    for name in mall_names:
-        if "(" in name and name == "The Shoppes at Webb Gin (Avenue Webb Gin)":
-            updated_name = "the-avenue-webb-gin"
-        elif "(" in name:
-            p_index = name.index("(")
-            updated_name = name[:p_index].strip()
-        else:
-            updated_name = name
-        
-        hypenated_name = updated_name.replace(" ", "-")
-        site_ending = hypenated_name.lower()
-        full_site = site_starter + site_ending
-
-        mall_urls.append(full_site)
-    return mall_urls
+    return mall_names, mall_urls
     
 
 # ~~~~~~~~~~~~~~~~~~~~~~~ STORES ~~~~~~~~~~~~~~~~~~~~~~~ #
@@ -82,9 +79,9 @@ def create_mall_sites(mall_names, site_starter):
 def find_store_index(store_names, target_store):
     if target_store in store_names:
         return store_names.index(target_store)
-    else:
-        print("Check to make sure the name is entered right")
-        return None
+    # else:
+    #     print("Check to make sure the name is entered right")
+    #     return None
 
 def generate_mall_directory(mall_url):
     mall_soup = fetch_and_parse_url(mall_url)
@@ -114,39 +111,48 @@ def get_brand_site(brand_url):
 
 def main():
     state = input("Enter the state you wish to view malls from (e.g., Alabama): ")
-    is_mall = input("Are you searching for a mall? (y [mall]/n [outlet]): ")
-    if is_mall == 'y':
-        mall_or_outlet = "malls"
-    else:
-        mall_or_outlet = "outlets"
     if state.lower() not in state_lower:
         print(f"The State you entered could not be found. Please try again.")
         return
+
+    is_mall = input(f'Are you searching for a mall or an outlet? (m [mall]/o [outlet]): ')
+    mall_or_outlet = mall_outlet(is_mall)
+
     url = f'https://www.mallscenters.com/{mall_or_outlet}/{state}'
     soup = fetch_and_parse_url(url)
 
-    mall_info = get_mall_info(soup)
-    mall_names = extract_mall_names(mall_info)
-    mall_names_lower = [mall.lower() for mall in mall_names]
-    mall_urls = create_mall_sites(mall_names, f"https://www.mallscenters.com/{mall_or_outlet}/{state}/")
 
-    target_mall = input("Enter the target mall name: ")
-    if target_mall.lower() not in mall_names_lower:
-        print("The mall you are looking for couldn't be found.")
+    mall_names, mall_urls = get_mall_info(soup)
+    mall_names_lower = [mall.lower() for mall in mall_names]
+
+    while True:
+        target_mall = input("Enter the target %s name: " % singular(mall_or_outlet))
+        if target_mall.lower() in mall_names_lower:
+            break
+        else:
+            print("The %s you are looking for couldn't be found. Please try again." % singular(mall_or_outlet))
+
     mall_index = find_mall_index(mall_names, target_mall)
 
     if mall_index is not None:
         mall_url = mall_urls[mall_index]
         store_names, store_links = generate_mall_directory(mall_url)
         store_names_lower = [name.lower() for name in store_names]
-        target_store = input("Enter the target store name: ")
-        store_index = find_store_index(store_names_lower, target_store.lower())
-        
-        if store_index is not None:
-            store_url = store_links[store_index]
-            brand_url = get_store_info(store_url)
-            brand_site = get_brand_site(brand_url)
-            print(f"The website for {store_names[store_index]} at {mall_names[mall_index]} is: {brand_site}")
+        while True:
+            target_store = input("Enter the target store name: ")
+            store_index = find_store_index(store_names_lower, target_store.lower())
+            if store_index is None:
+                print("The store you are looking for couldn't be found. Please try again.")
+            else:
+                break
+    
+        store_url = store_links[store_index]
+        brand_url = get_store_info(store_url)
+        brand_site = get_brand_site(brand_url)
+        print(f"The website for {store_names[store_index]} at {mall_names[mall_index]} is: {brand_site}")
+        # elif store_index is None:
+        #     target_store = input("Store couldn't be found. Check spelling or try again: ")
+        #     store_index = find_store_index(store_names_lower, target_store.lower())
 
 if __name__ == "__main__":
     main()
